@@ -1,33 +1,58 @@
-import React, { useState } from "react";
-import Button from "@mui/material/Button";
+import React, { useState, useRef } from "react";
 import { MapContainer, GeoJSON } from "react-leaflet";
+import Button from "@mui/material/Button";
 import "leaflet/dist/leaflet.css";
 import shp from "shpjs";
 
 export default function Fileupload({ fileFormat }) {
+  const inputFile = useRef(null);
   const [file, setFile] = useState();
   const [fileContent, setFileContent] = useState("");
   const [geoJSON, setGeoJSON] = useState({});
+
+  const fileExtension = {
+    'GeoJSON': '.json',
+    'Shapefiles': '.shp',
+    'Keyhold(KML)': '.kml'
+  }
+
+  function clearInputFile(){
+    if(inputFile.current) {
+      inputFile.current.value = "";
+      inputFile.current.type = "file";
+      inputFile.current.accept = ".zip, .json, .shp, .kml";
+    }
+  }
 
   const handleSelectFile = (event) => {
     console.log("handleSelectFile");
     setGeoJSON({});
     setFile(event.target.files[0]);
-    const reader = new FileReader();
-    if (fileFormat === "GeoJSON") {
-      reader.readAsText(event.target.files[0]);
-    } else if (fileFormat === "Shapefiles") {
-      reader.readAsArrayBuffer(event.target.files[0]);
-      console.log(event.target.files[0]);
-    }
-    reader.onload = async (e) => {
-      if (fileFormat === "Shapefiles") {
-        console.log(reader.result);
-        const geojson = await shp(reader.result);
-      } else if (fileFormat === "GeoJSON") {
-        setFileContent(reader.result);
+
+    // only process non-empty file that matches selected file extension
+    if(event.target.files[0]){
+      if(!event.target.files[0].name.includes(fileExtension[fileFormat])){
+        alert("Unmatch upload file format.")
+        clearInputFile();
       }
-    };
+      else{
+        const reader = new FileReader();
+        if (fileFormat === "GeoJSON") {
+          reader.readAsText(event.target.files[0]);
+        } else if (fileFormat === "Shapefiles") {
+          reader.readAsArrayBuffer(event.target.files[0]);
+          console.log(event.target.files[0]);
+        }
+        reader.onload = async (e) => {
+          if (fileFormat === "Shapefiles") {
+            console.log(reader.result);
+            const geojson = await shp(reader.result);
+          } else if (fileFormat === "GeoJSON") {
+            setFileContent(reader.result);
+          }
+        };
+      }
+    }
   };
 
   const handleUpload = () => {
@@ -39,6 +64,13 @@ export default function Fileupload({ fileFormat }) {
       }
     }
   };
+
+  const handleClear = () => {
+    setFile(null);
+    setFileContent("");
+    setGeoJSON({});
+    clearInputFile();
+  }
 
   const handleRegionDisplay = (country, layer) => {
     if (country.properties.admin) {
@@ -62,10 +94,14 @@ export default function Fileupload({ fileFormat }) {
         <input
           type="file"
           accept=".zip, .json, .shp, .kml"
+          ref={inputFile}
           onChange={handleSelectFile}
         />
         <Button variant="outlined" onClick={handleUpload}>
           Upload
+        </Button>
+        <Button variant="outlined" onClick={handleClear}>
+          Clear Map
         </Button>
       </form>
       {geoJSON.features && (
