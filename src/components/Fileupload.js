@@ -15,10 +15,10 @@ export default function Fileupload({ fileFormat }) {
   const [kml, setKml] = useState(null);
 
   const fileExtension = {
-    GeoJSON: "json",
-    Shapefiles: "shp/dbf/zip",
-    "Keyhole(KML)": "kml",
-  };
+    'GeoJSON': 'json',
+    'Shapefiles': 'shp/dbf/zip',
+    'Keyhold(KML)': 'kml'
+  }
 
   function clearInputFile() {
     if (inputFile.current) {
@@ -82,12 +82,6 @@ export default function Fileupload({ fileFormat }) {
       setFileContent(reader.result);
     };
     reader.readAsText(file);
-  }
-
-  const fileExtension = {
-    'GeoJSON': 'json',
-    'Shapefiles': 'shp/dbf/zip',
-    'Keyhold(KML)': 'kml'
   }
 
   function clearInputFile(){
