@@ -27,7 +27,7 @@ export default function Dropdown() {
         >
           <MenuItem value="Shapefiles">Shapefiles</MenuItem>
           <MenuItem value="GeoJSON">GeoJSON</MenuItem>
-          <MenuItem value="Keyhold(KML)">Keyhole(KML)</MenuItem>
+          <MenuItem value="Keyhole(KML)">Keyhole(KML)</MenuItem>
         </Select>
       </FormControl>
       <Fileupload fileFormat={fileFormat} />
