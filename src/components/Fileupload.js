@@ -17,7 +17,7 @@ export default function Fileupload({ fileFormat }) {
   const fileExtension = {
     'GeoJSON': 'json',
     'Shapefiles': 'shp/dbf/zip',
-    'Keyhold(KML)': 'kml'
+    'Keyhole(KML)': 'kml'
   }
 
   function clearInputFile() {
@@ -84,59 +84,6 @@ export default function Fileupload({ fileFormat }) {
     reader.readAsText(file);
   }
 
-  function clearInputFile(){
-    if(inputFile.current) {
-      inputFile.current.value = "";
-      inputFile.current.type = "file";
-      inputFile.current.accept = ".zip, .json, .shp, .kml";
-    }
-  }
-
-  function readDataFromGeojsonFile(file) {
-    console.log('readDataFromGeojsonFile');
-    const reader = new FileReader();
-    reader.onload = () => {
-      setFileContent(reader.result);
-    };
-    reader.readAsText(file);
-  }
-
-  function readDataFromShpFile(file) {
-    console.log('readDataFromShpFile');
-    var features = [];
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      shapefile.open(reader.result)
-      .then(source => source.read()
-        .then(function log(result) {
-          if (result.done){
-            console.log('done')
-            const geoJSON = {
-              type: 'FeatureCollection',
-              features: features
-            };
-            setFileContent(geoJSON);
-            return;
-          }
-          features.push(result.value)
-          return source.read().then(log);
-        }))
-      .catch(error => console.error(error.stack));
-    };
-    reader.readAsArrayBuffer(file);
-  }
-  
-  function readDataFromShpZipFile(file) {
-    console.log('readDataFromShpZipFile')
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      shp(reader.result).then(function (geojson) {
-        console.log(geojson)
-      });
-    };
-    reader.readAsArrayBuffer(file);
-  }
-
   const handleSelectFile = (event) => {
     console.log("handleSelectFile");
     setGeoJSON({});
@@ -186,6 +133,7 @@ export default function Fileupload({ fileFormat }) {
 
   const handleClear = () => {
     setFile(null);
+    setKml(null);
     setFileContent("");
     setGeoJSON({});
     clearInputFile();
