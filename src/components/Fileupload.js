@@ -4,7 +4,7 @@ import Button from "@mui/material/Button";
 import "leaflet/dist/leaflet.css";
 import ReactLeafletKml from "react-leaflet-kml";
 import * as shapefile from "shapefile";
-import shp from "shpjs";
+import JSZip from 'jszip';
 
 export default function Fileupload({ fileFormat }) {
   const inputFile = useRef(null);
@@ -14,6 +14,14 @@ export default function Fileupload({ fileFormat }) {
   const [shpBuffer, setShpBuffer] = useState(null);
   const [dbfBuffer, setDbfBuffer] = useState(null);
 
+  // define file extension
+  const fileExtension = {
+    'GeoJSON': 'json',
+    'Shapefiles': 'shp/dbf/zip',
+    'Keyhole(KML)': 'kml'
+  }
+
+  // re-run effect when buffers change
   useEffect(() => {
     if (shpBuffer && dbfBuffer) {
       let features = [];
@@ -37,21 +45,8 @@ export default function Fileupload({ fileFormat }) {
     }
   }, [shpBuffer, dbfBuffer])
 
-  const fileExtension = {
-    GeoJSON: "json",
-    Shapefiles: "shp/dbf/zip",
-    "Keyhole(KML)": "kml",
-  };
-
-  function clearInputFile() {
-    if (inputFile.current) {
-      inputFile.current.value = "";
-      inputFile.current.type = "file";
-      inputFile.current.accept = ".zip, .json, .shp, .kml, .dbf";
-    }
-  }
-
-  function readDataFromGeojsonFile(file) {
+  // for reading .kml & .geojson file
+  function readDataAsText(file) {
     const reader = new FileReader();
     reader.onload = () => {
       setFileContent(reader.result);
@@ -59,68 +54,88 @@ export default function Fileupload({ fileFormat }) {
     reader.readAsText(file);
   }
 
-  function readDataFromShpFile(shpFile, dbfFile) {
-    const shpReader = new FileReader();
-    const dbfReader = new FileReader();
-    shpReader.onload = (e) => {
-      setShpBuffer(shpReader.result)
-    }
-    dbfReader.onload = (e) => {
-      setDbfBuffer(dbfReader.result)
-    }
-    shpReader.readAsArrayBuffer(shpFile);
-    dbfReader.readAsArrayBuffer(dbfFile);
+  // for reading .shp & .dbf file
+  function readDataAsArrayBuffer(file, stateHook){
+    const reader = new FileReader();
+    reader.onload = () => {
+      stateHook(reader.result);
+    };
+    reader.readAsArrayBuffer(file);
   }
 
-  function readDataFromShpZipFile(file) {
+  function readDataFromShapeFiles(shpFile, dbfFile) {
+    readDataAsArrayBuffer(shpFile, setShpBuffer);
+    readDataAsArrayBuffer(dbfFile, setDbfBuffer);
+  }
+
+  // for reading .zip file containing diff file format (we only want .shp & .dbf)
+  function readDataFromZipFile(file) {
     const reader = new FileReader();
-    reader.onload = (e) => {
-      shp(reader.result).then(function (geojson) {
-        console.log(geojson);
+
+    reader.onload = () => {
+        const zipData = reader.result;
+        const jszip = new JSZip();
+
+        jszip.loadAsync(zipData).then((zip) => {
+          zip.forEach((fileName, file) => {
+            // ignore file that is not .shp/.dbf
+            const fileType = fileName.split(".").pop();
+            if(fileType !== 'shp' && fileType !== 'dbf'){
+              return;
+            }
+
+            // Read file content by arraybuffer type
+            file.async("arraybuffer").then((content) => {
+              if(fileType === 'shp')
+                setShpBuffer(content);
+              else
+                setDbfBuffer(content);
+            });
+          });
       });
     };
     reader.readAsArrayBuffer(file);
   }
 
-  function readDataFromKMLFile(file) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setFileContent(reader.result);
-    };
-    reader.readAsText(file);
-  }
-
+  // handle selected file input
   const handleSelectFile = (event) => {
     setGeoJSON({});
-    const fileCount = event.target.files.length
+    setKml(null);
 
+    const fileCount = event.target.files.length;
     // only process non-empty file that matches selected file extension
-    if (event.target.files[0]) {
+    if (event.target.files[0] && fileFormat) {
       const fileType = event.target.files[0].name.split(".").pop();
       const fileType2 = fileCount === 2 ? event.target.files[1].name.split(".").pop() : '';
-      if ((fileFormat === 'Shapefiles' && (fileCount !== 2 || !fileExtension[fileFormat].includes(fileType2))) || !fileExtension[fileFormat].includes(fileType)) {
+      if ((fileFormat === 'Shapefiles' && ((fileCount !== 2 && fileType !== 'zip') || !fileExtension[fileFormat].includes(fileType2))) || !fileExtension[fileFormat].includes(fileType)) {
         alert("Unmatch upload file format.");
         clearInputFile();
       } else {
         if (fileFormat === "GeoJSON") {
-          readDataFromGeojsonFile(event.target.files[0]);
+          readDataAsText(event.target.files[0]);
         } else if (fileFormat === "Shapefiles") {
           if (fileType === "shp" || fileType === 'dbf') {
             var shpFile =  (fileType === "shp") ? event.target.files[0] : event.target.files[1];
             var dbfFile =  (fileType === "dbf") ? event.target.files[0] : event.target.files[1];
-            readDataFromShpFile(shpFile, dbfFile);
+            readDataFromShapeFiles(shpFile, dbfFile);
           } else if (fileType === "zip") {
-            readDataFromShpZipFile(event.target.files[0]);
+            readDataFromZipFile(event.target.files[0]);
           }
         } else if (fileFormat === "Keyhole(KML)") {
-          readDataFromKMLFile(event.target.files[0]);
+          readDataAsText(event.target.files[0]);
         }
       }
     }
   };
 
+  // handle map rendering after upload file & choose format
   const handleUpload = () => {
-    if (fileContent) {
+    if(!fileFormat){
+      alert('Please select file format with at least one file.');
+      return;
+    }
+
+    if(fileContent){
       if (fileFormat === "GeoJSON") {
         setGeoJSON(JSON.parse(fileContent));
       } else if (fileFormat === "Shapefiles") {
@@ -135,6 +150,16 @@ export default function Fileupload({ fileFormat }) {
     }
   };
 
+  // for clearing input file
+  function clearInputFile() {
+    if (inputFile.current) {
+      inputFile.current.value = "";
+      inputFile.current.type = "file";
+      inputFile.current.accept = ".zip, .json, .shp, .kml, .dbf";
+    }
+  }
+
+  // handle clearing all inputs
   const handleClear = () => {
     setFileContent("");
     setGeoJSON({});
@@ -144,18 +169,18 @@ export default function Fileupload({ fileFormat }) {
     clearInputFile();
   };
 
+  // handle display region names
   const handleRegionDisplay = (country, layer) => {
     if (country.properties.admin) {
       layer.bindPopup(country.properties.admin);
     } else {
-      const regionType =
-        country.properties.ENGTYPE_1 || country.properties.ENGTYPE_2;
+      console.log(country.properties);
       layer.bindPopup(
-        regionType === "Province"
-          ? country.properties.NAME_1
-          : regionType === "District"
-          ? country.properties.NAME_2
-          : country.properties.NAME_0
+        (country.properties.ENGTYPE_1) ? country.properties.NAME_1 :
+        (country.properties.ENGTYPE_2) ? country.properties.NAME_2 :
+        (country.properties.ENGTYPE_3) ? country.properties.NAME_3 :
+        (country.properties.NAME_0) ? country.properties.NAME_0:
+        country.properties.NAME
       );
     }
   };
@@ -188,7 +213,7 @@ export default function Fileupload({ fileFormat }) {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
           />
-          <ReactLeafletKml kml={kml} />
+          <ReactLeafletKml kml={kml}/>
         </MapContainer>
       )}
     </div>
