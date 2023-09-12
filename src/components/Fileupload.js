@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { MapContainer, GeoJSON, TileLayer } from "react-leaflet";
 import Button from "@mui/material/Button";
 import "leaflet/dist/leaflet.css";
@@ -8,45 +8,20 @@ import shp from "shpjs";
 
 export default function Fileupload({ fileFormat }) {
   const inputFile = useRef(null);
-  const [file, setFile] = useState();
   const [fileContent, setFileContent] = useState("");
   const [geoJSON, setGeoJSON] = useState({});
   const [kml, setKml] = useState(null);
+  const [shpBuffer, setShpBuffer] = useState(null)
+  const [dbfBuffer, setDbfBuffer] = useState(null)
 
-  const fileExtension = {
-    GeoJSON: "json",
-    Shapefiles: "shp/dbf/zip",
-    "Keyhole(KML)": "kml",
-  };
-
-  function clearInputFile() {
-    if (inputFile.current) {
-      inputFile.current.value = "";
-      inputFile.current.type = "file";
-      inputFile.current.accept = ".zip, .json, .shp, .kml";
-    }
-  }
-
-  function readDataFromGeojsonFile(file) {
-    console.log("readDataFromGeojsonFile");
-    const reader = new FileReader();
-    reader.onload = () => {
-      setFileContent(reader.result);
-    };
-    reader.readAsText(file);
-  }
-
-  function readDataFromShpFile(file) {
-    console.log("readDataFromShpFile");
-    var features = [];
-    const reader = new FileReader();
-    reader.onload = (e) => {
+  useEffect(() => {
+    if (shpBuffer && dbfBuffer) {
+      let features = [];
       shapefile
-        .open(reader.result)
+        .open(shpBuffer, dbfBuffer)
         .then((source) =>
           source.read().then(function log(result) {
             if (result.done) {
-              console.log("done");
               const geoJSON = {
                 type: "FeatureCollection",
                 features: features,
@@ -59,12 +34,46 @@ export default function Fileupload({ fileFormat }) {
           })
         )
         .catch((error) => console.error(error.stack));
+    }
+  }, [shpBuffer, dbfBuffer])
+
+  const fileExtension = {
+    GeoJSON: "json",
+    Shapefiles: "shp/dbf/zip",
+    "Keyhole(KML)": "kml",
+  };
+
+  function clearInputFile() {
+    if (inputFile.current) {
+      inputFile.current.value = "";
+      inputFile.current.type = "file";
+      inputFile.current.accept = ".zip, .json, .shp, .kml, .dbf";
+    }
+  }
+
+  function readDataFromGeojsonFile(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      setFileContent(reader.result);
     };
-    reader.readAsArrayBuffer(file);
+    reader.readAsText(file);
+  }
+
+  function readDataFromShpFile(file, file2) {
+    var features = [];
+    const shpReader = new FileReader();
+    const dbfReader = new FileReader();
+    shpReader.onload = (e) => {
+      setShpBuffer(shpReader.result)
+    }
+    dbfReader.onload = (e) => {
+      setDbfBuffer(dbfReader.result)
+    }
+    shpReader.readAsArrayBuffer(file2);
+    dbfReader.readAsArrayBuffer(file);
   }
 
   function readDataFromShpZipFile(file) {
-    console.log("readDataFromShpZipFile");
     const reader = new FileReader();
     reader.onload = (e) => {
       shp(reader.result).then(function (geojson) {
@@ -75,7 +84,6 @@ export default function Fileupload({ fileFormat }) {
   }
 
   function readDataFromKMLFile(file) {
-    console.log("readDataFromKMLFile");
     const reader = new FileReader();
     reader.onload = (e) => {
       setFileContent(reader.result);
@@ -84,27 +92,24 @@ export default function Fileupload({ fileFormat }) {
   }
 
   const handleSelectFile = (event) => {
-    console.log("handleSelectFile");
     setGeoJSON({});
-    setFile(event.target.files[0]);
-    console.log(fileFormat);
+    const fileCount = event.target.files.length
 
     // only process non-empty file that matches selected file extension
     if (event.target.files[0]) {
       const fileType = event.target.files[0].name.split(".").pop();
-      if (!fileExtension[fileFormat].includes(fileType)) {
+      const fileType2 = fileCount == 2 ? event.target.files[1].name.split(".").pop() : '';
+      if ((fileFormat === 'Shapefiles' && (fileCount != 2 || !fileExtension[fileFormat].includes(fileType2))) || !fileExtension[fileFormat].includes(fileType)) {
         alert("Unmatch upload file format.");
         clearInputFile();
       } else {
         if (fileFormat === "GeoJSON") {
           readDataFromGeojsonFile(event.target.files[0]);
         } else if (fileFormat === "Shapefiles") {
-          if (fileType === "shp") {
-            readDataFromShpFile(event.target.files[0]);
+          if (fileType === "shp" || fileType === 'dbf') {
+            readDataFromShpFile(event.target.files[0], event.target.files[1]);
           } else if (fileType === "zip") {
             readDataFromShpZipFile(event.target.files[0]);
-          } else {
-            console.log("dbf file");
           }
         } else if (fileFormat === "Keyhole(KML)") {
           readDataFromKMLFile(event.target.files[0]);
@@ -114,8 +119,7 @@ export default function Fileupload({ fileFormat }) {
   };
 
   const handleUpload = () => {
-    if (file) {
-      console.log(fileContent);
+    if (fileContent) {
       if (fileFormat === "GeoJSON") {
         setGeoJSON(JSON.parse(fileContent));
       } else if (fileFormat === "Shapefiles") {
@@ -131,9 +135,10 @@ export default function Fileupload({ fileFormat }) {
   };
 
   const handleClear = () => {
-    setFile(null);
     setFileContent("");
     setGeoJSON({});
+    setDbfBuffer(null);
+    setShpBuffer(null);
     clearInputFile();
   };
 
@@ -158,7 +163,8 @@ export default function Fileupload({ fileFormat }) {
       <form>
         <input
           type="file"
-          accept=".zip, .json, .shp, .kml"
+          accept=".zip, .json, .shp, .kml, .dbf"
+          multiple
           ref={inputFile}
           onChange={handleSelectFile}
         />
