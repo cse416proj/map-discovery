@@ -11,8 +11,8 @@ export default function Fileupload({ fileFormat }) {
   const [fileContent, setFileContent] = useState("");
   const [geoJSON, setGeoJSON] = useState({});
   const [kml, setKml] = useState(null);
-  const [shpBuffer, setShpBuffer] = useState(null)
-  const [dbfBuffer, setDbfBuffer] = useState(null)
+  const [shpBuffer, setShpBuffer] = useState(null);
+  const [dbfBuffer, setDbfBuffer] = useState(null);
 
   useEffect(() => {
     if (shpBuffer && dbfBuffer) {
@@ -59,8 +59,7 @@ export default function Fileupload({ fileFormat }) {
     reader.readAsText(file);
   }
 
-  function readDataFromShpFile(file, file2) {
-    var features = [];
+  function readDataFromShpFile(shpFile, dbfFile) {
     const shpReader = new FileReader();
     const dbfReader = new FileReader();
     shpReader.onload = (e) => {
@@ -69,8 +68,8 @@ export default function Fileupload({ fileFormat }) {
     dbfReader.onload = (e) => {
       setDbfBuffer(dbfReader.result)
     }
-    shpReader.readAsArrayBuffer(file2);
-    dbfReader.readAsArrayBuffer(file);
+    shpReader.readAsArrayBuffer(shpFile);
+    dbfReader.readAsArrayBuffer(dbfFile);
   }
 
   function readDataFromShpZipFile(file) {
@@ -98,8 +97,8 @@ export default function Fileupload({ fileFormat }) {
     // only process non-empty file that matches selected file extension
     if (event.target.files[0]) {
       const fileType = event.target.files[0].name.split(".").pop();
-      const fileType2 = fileCount == 2 ? event.target.files[1].name.split(".").pop() : '';
-      if ((fileFormat === 'Shapefiles' && (fileCount != 2 || !fileExtension[fileFormat].includes(fileType2))) || !fileExtension[fileFormat].includes(fileType)) {
+      const fileType2 = fileCount === 2 ? event.target.files[1].name.split(".").pop() : '';
+      if ((fileFormat === 'Shapefiles' && (fileCount !== 2 || !fileExtension[fileFormat].includes(fileType2))) || !fileExtension[fileFormat].includes(fileType)) {
         alert("Unmatch upload file format.");
         clearInputFile();
       } else {
@@ -107,7 +106,9 @@ export default function Fileupload({ fileFormat }) {
           readDataFromGeojsonFile(event.target.files[0]);
         } else if (fileFormat === "Shapefiles") {
           if (fileType === "shp" || fileType === 'dbf') {
-            readDataFromShpFile(event.target.files[0], event.target.files[1]);
+            var shpFile =  (fileType === "shp") ? event.target.files[0] : event.target.files[1];
+            var dbfFile =  (fileType === "dbf") ? event.target.files[0] : event.target.files[1];
+            readDataFromShpFile(shpFile, dbfFile);
           } else if (fileType === "zip") {
             readDataFromShpZipFile(event.target.files[0]);
           }
@@ -137,6 +138,7 @@ export default function Fileupload({ fileFormat }) {
   const handleClear = () => {
     setFileContent("");
     setGeoJSON({});
+    setKml(null);
     setDbfBuffer(null);
     setShpBuffer(null);
     clearInputFile();
@@ -168,7 +170,7 @@ export default function Fileupload({ fileFormat }) {
           ref={inputFile}
           onChange={handleSelectFile}
         />
-        <Button variant="outlined" onClick={handleUpload}>
+        <Button variant="contained" onClick={handleUpload}>
           Upload
         </Button>
         <Button variant="outlined" onClick={handleClear}>
