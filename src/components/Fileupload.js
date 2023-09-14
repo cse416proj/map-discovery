@@ -4,7 +4,7 @@ import Button from "@mui/material/Button";
 import "leaflet/dist/leaflet.css";
 import ReactLeafletKml from "react-leaflet-kml";
 import * as shapefile from "shapefile";
-import JSZip from 'jszip';
+import JSZip from "jszip";
 
 export default function Fileupload({ fileFormat }) {
   const inputFile = useRef(null);
@@ -16,10 +16,10 @@ export default function Fileupload({ fileFormat }) {
 
   // define file extension
   const fileExtension = {
-    'GeoJSON': 'json',
-    'Shapefiles': 'shp/dbf/zip',
-    'Keyhole(KML)': 'kml'
-  }
+    GeoJSON: "json",
+    Shapefiles: "shp/dbf/zip",
+    "Keyhole(KML)": "kml",
+  };
 
   // re-run effect when buffers change
   useEffect(() => {
@@ -43,7 +43,7 @@ export default function Fileupload({ fileFormat }) {
         )
         .catch((error) => console.error(error.stack));
     }
-  }, [shpBuffer, dbfBuffer])
+  }, [shpBuffer, dbfBuffer]);
 
   // for reading .kml & .geojson file
   function readDataAsText(file) {
@@ -55,7 +55,7 @@ export default function Fileupload({ fileFormat }) {
   }
 
   // for reading .shp & .dbf file
-  function readDataAsArrayBuffer(file, stateHook){
+  function readDataAsArrayBuffer(file, stateHook) {
     const reader = new FileReader();
     reader.onload = () => {
       stateHook(reader.result);
@@ -73,25 +73,23 @@ export default function Fileupload({ fileFormat }) {
     const reader = new FileReader();
 
     reader.onload = () => {
-        const zipData = reader.result;
-        const jszip = new JSZip();
+      const zipData = reader.result;
+      const jszip = new JSZip();
 
-        jszip.loadAsync(zipData).then((zip) => {
-          zip.forEach((fileName, file) => {
-            // ignore file that is not .shp/.dbf
-            const fileType = fileName.split(".").pop();
-            if(fileType !== 'shp' && fileType !== 'dbf'){
-              return;
-            }
+      jszip.loadAsync(zipData).then((zip) => {
+        zip.forEach((fileName, file) => {
+          // ignore file that is not .shp/.dbf
+          const fileType = fileName.split(".").pop();
+          if (fileType !== "shp" && fileType !== "dbf") {
+            return;
+          }
 
-            // Read file content by arraybuffer type
-            file.async("arraybuffer").then((content) => {
-              if(fileType === 'shp')
-                setShpBuffer(content);
-              else
-                setDbfBuffer(content);
-            });
+          // Read file content by arraybuffer type
+          file.async("arraybuffer").then((content) => {
+            if (fileType === "shp") setShpBuffer(content);
+            else setDbfBuffer(content);
           });
+        });
       });
     };
     reader.readAsArrayBuffer(file);
@@ -106,17 +104,31 @@ export default function Fileupload({ fileFormat }) {
     // only process non-empty file that matches selected file extension
     if (event.target.files[0] && fileFormat) {
       const fileType = event.target.files[0].name.split(".").pop();
-      const fileType2 = fileCount === 2 ? event.target.files[1].name.split(".").pop() : '';
-      if ((fileFormat === 'Shapefiles' && ((fileCount !== 2 && fileType !== 'zip') || !fileExtension[fileFormat].includes(fileType2))) || !fileExtension[fileFormat].includes(fileType)) {
+      const fileType2 =
+        fileCount === 2 ? event.target.files[1].name.split(".").pop() : "";
+      const fileTypeSet = new Set([fileType, fileType2]);
+      if (
+        (fileFormat === "Shapefiles" &&
+          ((fileCount !== 2 && fileType !== "zip") ||
+            !fileExtension[fileFormat].includes(fileType2))) ||
+        !fileExtension[fileFormat].includes(fileType) ||
+        fileTypeSet.size !== 2
+      ) {
         alert("Unmatch upload file format.");
         clearInputFile();
       } else {
         if (fileFormat === "GeoJSON") {
           readDataAsText(event.target.files[0]);
         } else if (fileFormat === "Shapefiles") {
-          if (fileType === "shp" || fileType === 'dbf') {
-            var shpFile =  (fileType === "shp") ? event.target.files[0] : event.target.files[1];
-            var dbfFile =  (fileType === "dbf") ? event.target.files[0] : event.target.files[1];
+          if (fileType === "shp" || fileType === "dbf") {
+            var shpFile =
+              fileType === "shp"
+                ? event.target.files[0]
+                : event.target.files[1];
+            var dbfFile =
+              fileType === "dbf"
+                ? event.target.files[0]
+                : event.target.files[1];
             readDataFromShapeFiles(shpFile, dbfFile);
           } else if (fileType === "zip") {
             readDataFromZipFile(event.target.files[0]);
@@ -130,12 +142,12 @@ export default function Fileupload({ fileFormat }) {
 
   // handle map rendering after upload file & choose format
   const handleUpload = () => {
-    if(!fileFormat){
-      alert('Please select file format with at least one file.');
+    if (!fileFormat) {
+      alert("Please select file format with at least one file.");
       return;
     }
 
-    if(fileContent){
+    if (fileContent) {
       if (fileFormat === "GeoJSON") {
         setGeoJSON(JSON.parse(fileContent));
       } else if (fileFormat === "Shapefiles") {
@@ -174,13 +186,16 @@ export default function Fileupload({ fileFormat }) {
     if (country.properties.admin) {
       layer.bindPopup(country.properties.admin);
     } else {
-      console.log(country.properties);
       layer.bindPopup(
-        (country.properties.ENGTYPE_1) ? country.properties.NAME_1 :
-        (country.properties.ENGTYPE_2) ? country.properties.NAME_2 :
-        (country.properties.ENGTYPE_3) ? country.properties.NAME_3 :
-        (country.properties.NAME_0) ? country.properties.NAME_0:
-        country.properties.NAME
+        country.properties.ENGTYPE_1
+          ? country.properties.NAME_1
+          : country.properties.ENGTYPE_2
+          ? country.properties.NAME_2
+          : country.properties.ENGTYPE_3
+          ? country.properties.NAME_3
+          : country.properties.NAME_0
+          ? country.properties.NAME_0
+          : country.properties.NAME
       );
     }
   };
@@ -213,7 +228,7 @@ export default function Fileupload({ fileFormat }) {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
           />
-          <ReactLeafletKml kml={kml}/>
+          <ReactLeafletKml kml={kml} />
         </MapContainer>
       )}
     </div>
